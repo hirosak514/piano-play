@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+openai
+music21
+python-multipart
+# Renderで必要になる場合があるHTTPクライアント
+httpx
