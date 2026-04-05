@@ -23,8 +23,12 @@ app.add_middleware(
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # music21の設定（サーバー環境ではGUIを使わない設定にする）
-music21.environment.set('graphicsMagickPath', '')
-music21.environment.set('musescoreDirectPNGPath', '')
+from music21 import environment
+try:
+    environment.UserSettings()['graphicsMagickPath'] = ''
+    environment.UserSettings()['musescoreDirectPNGPath'] = ''
+except:
+    pass # 設定できなくても無視して進む
 
 @app.post("/generate-midi")
 async def generate_midi(file: UploadFile = File(...)):
