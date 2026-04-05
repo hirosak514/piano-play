@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>楽譜 → MIDI 変換アプリ</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f9; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; }
+        input { margin: 20px 0; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        #status { margin-top: 20px; color: #555; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎹 楽譜からMIDIを作ろう</h1>
+    <p>楽譜の画像をアップロードしてください</p>
+    
+    <input type="file" id="imageInput" accept="image/*"><br>
+    <button id="uploadBtn">MIDIに変換する</button>
+
+    <div id="status"></div>
+</div>
+
+<script>
+    // 【重要】Renderで発行されたURLに書き換えてください
+    const API_URL = "https://あなたのアプリ名.onrender.com/generate-midi";
+
+    document.getElementById('uploadBtn').onclick = async () => {
+        const fileInput = document.getElementById('imageInput');
+        const status = document.getElementById('status');
+        const btn = document.getElementById('uploadBtn');
+
+        if (!fileInput.files[0]) {
+            alert("画像を選んでください");
+            return;
+        }
+
+        btn.disabled = true;
+        status.innerText = "AIが解析中です...（1分ほどかかる場合があります）";
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) throw new Error("サーバーエラーが発生しました");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            
+            // 自動でダウンロードを開始
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "score.mid";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            status.innerText = "成功！MIDIファイルをダウンロードしました。";
+        } catch (err) {
+            status.innerText = "エラー: " + err.message;
+        } finally {
+            btn.disabled = false;
+        }
+    };
+</script>
+
+</body>
+</html>
