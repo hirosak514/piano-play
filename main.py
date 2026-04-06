@@ -25,7 +25,6 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # music21の設定（サーバー環境でのエラーを回避）
 from music21 import environment
 try:
-    # 既存の設定をクリア
     environment.UserSettings()['graphicsMagickPath'] = ''
     environment.UserSettings()['musescoreDirectPNGPath'] = ''
 except:
@@ -77,31 +76,33 @@ async def generate_midi(file: UploadFile = File(...)):
     try:
         s = music21.stream.Stream()
         for item in notes_data:
-            n = music21.note.Note(item['pitch'])
-            n.quarterLength = float(item['duration'])
-            s.append(n)
+            # 念のためデータが存在することを確認
+            if 'pitch' in item and 'duration' in item:
+                n = music21.note.Note(item['pitch'])
+                n.quarterLength = float(item['duration'])
+                s.append(n)
 
-        # 【修正ポイント】MIDIをバイナリデータとして取得
-        # 書き込み先を BytesIO (メモリ上のファイル) にすることでエラーを回避
-        midi_file = music21.midi.translate.streamToMidiFile(s)
-        binary_stream = io.BytesIO()
-        midi_file.openBinary(binary_stream)
-        midi_file.write()
-        midi_file.close()
+        # 【超重要修正】一時ファイルを使用してバイナリを取得
+        # これにより、ライブラリのバージョンに関わらず「write()」のエラーを回避できます
+        temp_midi_path = "/tmp/output.mid"
+        s.write('midi', fp=temp_midi_path)
         
-        # バイナリデータの先頭に戻る
-        binary_stream.seek(0)
+        with open(temp_midi_path, "rb") as f:
+            midi_data = f.read()
         
-        # 5. 送信
+        # 使用後の一時ファイルを削除（任意）
+        if os.path.exists(temp_midi_path):
+            os.remove(temp_midi_path)
+
+        # 5. フロントエンドに送信
         return StreamingResponse(
-            binary_stream,
+            io.BytesIO(midi_data),
             media_type="audio/midi",
             headers={"Content-Disposition": "attachment; filename=output.mid"}
         )
 
     except Exception as e:
         print(f"MIDI Error: {e}")
-        # 詳細なエラーをログに出力
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"MIDI生成エラー: {str(e)}")
