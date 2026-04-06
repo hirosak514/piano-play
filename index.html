@@ -2,47 +2,51 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>楽譜 → MIDI 変換アプリ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>楽譜からMIDIを作ろう</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f9; }
-        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; }
-        input { margin: 20px 0; }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
-        button:disabled { background: #ccc; }
-        #status { margin-top: 20px; color: #555; }
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        h1 { font-size: 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        input[type="file"] { margin-bottom: 1.5rem; width: 100%; }
+        button { background-color: #007bff; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 4px; cursor: pointer; width: 100%; font-size: 1rem; }
+        button:disabled { background-color: #ccc; }
+        #result { margin-top: 1.5rem; font-size: 0.9rem; color: #555; min-height: 1.5rem; }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div class="card">
     <h1>🎹 楽譜からMIDIを作ろう</h1>
     <p>楽譜の画像をアップロードしてください</p>
     
-    <input type="file" id="imageInput" accept="image/*"><br>
-    <button id="uploadBtn">MIDIに変換する</button>
+    <input type="file" id="imageInput" accept="image/*">
+    <button id="convertBtn">MIDIに変換する</button>
 
-    <div id="status"></div>
+    <div id="result"></div>
 </div>
 
 <script>
-    // 【重要】Renderで発行されたURLに書き換えてください
+    // 【重要】Renderの自分のURLに書き換えてください
     const API_URL = "https://piano-play.onrender.com/generate-midi";
 
-    document.getElementById('uploadBtn').onclick = async () => {
-        const fileInput = document.getElementById('imageInput');
-        const status = document.getElementById('status');
-        const btn = document.getElementById('uploadBtn');
+    const convertBtn = document.getElementById('convertBtn');
+    const imageInput = document.getElementById('imageInput');
+    const resultDiv = document.getElementById('result');
 
-        if (!fileInput.files[0]) {
-            alert("画像を選んでください");
+    convertBtn.addEventListener('click', async () => {
+        const file = imageInput.files[0];
+        if (!file) {
+            alert("画像を選択してください");
             return;
         }
 
-        btn.disabled = true;
-        status.innerText = "AIが解析中です...（1分ほどかかる場合があります）";
-
         const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
+        formData.append('file', file);
+
+        // 状態をリセット
+        convertBtn.disabled = true;
+        resultDiv.innerText = "AIが解析中です... (1分ほどかかる場合があります)";
 
         try {
             const response = await fetch(API_URL, {
@@ -50,26 +54,42 @@
                 body: formData
             });
 
-            if (!response.ok) throw new Error("サーバーエラーが発生しました");
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "サーバーエラーが発生しました");
+            }
 
+            // 1. サーバーから届いたデータを「塊(Blob)」として受け取る
             const blob = await response.blob();
+
+            // 2. ブラウザのメモリ上に一時的なURLを作成
             const url = window.URL.createObjectURL(blob);
-            
-            // 自動でダウンロードを開始
+
+            // 3. 見えない「aタグ（リンク）」を作成
             const a = document.createElement('a');
+            a.style.display = 'none';
             a.href = url;
-            a.download = "score.mid";
+            
+            // 4. ダウンロード時のファイル名を指定
+            a.download = 'score.mid';
+            
+            // 5. 画面に追加して、プログラムからクリック実行！
             document.body.appendChild(a);
             a.click();
-            a.remove();
+            
+            // 6. 後片付け（メモリを解放し、タグを消す）
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
 
-            status.innerText = "成功！MIDIファイルをダウンロードしました。";
-        } catch (err) {
-            status.innerText = "エラー: " + err.message;
+            resultDiv.innerText = "成功！MIDIファイルをダウンロードしました。";
+
+        } catch (error) {
+            console.error("Error:", error);
+            resultDiv.innerText = "エラー: " + error.message;
         } finally {
-            btn.disabled = false;
+            convertBtn.disabled = false;
         }
-    };
+    });
 </script>
 
 </body>
